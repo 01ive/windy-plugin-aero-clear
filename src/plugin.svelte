@@ -10,7 +10,15 @@
     🦅 { title }
     </div>        
     {:else}
-    🦅 { title }
+    <div 
+        class="mobile-resize-handle" 
+        on:touchstart={startResize} 
+        on:mousedown={startResize}
+    >
+        <div class="mobile-resize-bar"></div>
+        &nbsp; 🦅 { title } &nbsp;
+        <div class="mobile-resize-bar"></div>
+    </div>
     {/if}
     
     <div class="top-bar">
@@ -146,9 +154,46 @@
 
     // Timers
     let debounceTimer: any = null;
+
+    // Resize variables
+    let isResizing = false;
+    let startY = 0;
+    let startHeight = 0;
     
     // Functions
     // -------------------------------------------------------------------------------------------------
+    const startResize = (e: TouchEvent | MouseEvent) => {
+        const pluginEl = document.getElementById('plugin-windy-plugin-aero-clear');
+        if (!pluginEl) return;
+        isResizing = true;
+        startY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+        startHeight = pluginEl.getBoundingClientRect().height;
+        window.addEventListener('touchmove', doResize, { passive: false });
+        window.addEventListener('mousemove', doResize);
+        window.addEventListener('touchend', stopResize);
+        window.addEventListener('mouseup', stopResize);
+    };
+
+    const doResize = (e: TouchEvent | MouseEvent) => {
+        if (!isResizing) return;
+        if (e.cancelable) e.preventDefault();
+        const pluginEl = document.getElementById('plugin-windy-plugin-aero-clear');
+        if (!pluginEl) return;
+        const currentY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+        const deltaY = startY - currentY;
+        const newHeight = Math.max(window.innerHeight * 0.2, Math.min(window.innerHeight * 0.95, startHeight + deltaY));
+        pluginEl.style.setProperty('height', `${newHeight}px`, 'important');
+        pluginEl.style.setProperty('max-height', `${newHeight}px`, 'important');
+    };
+
+    const stopResize = () => {
+        isResizing = false;
+        window.removeEventListener('touchmove', doResize);
+        window.removeEventListener('mousemove', doResize);
+        window.removeEventListener('touchend', stopResize);
+        window.removeEventListener('mouseup', stopResize);
+    };
+
     const toggleStep = () => {
         currentStep = currentStep === 3 ? 1 : 3;
         if (lat !== null && lon !== null) fetchWindGrid(lat, lon);
@@ -364,6 +409,7 @@
     });
 
     onDestroy(() => { 
+        stopResize();
         if (mobileUI) {
             try { store.off('mapCoords', updateLocation); } catch(e) {}
         } else {
@@ -376,7 +422,25 @@
 
 <style lang="less">    
     :global(#plugin-windy-plugin-aero-clear) {
-        min-height: 50dvh !important;
+        min-height: 40dvh !important;
+    }
+
+    .mobile-resize-handle {
+        width: 100%;
+        // padding: 8px 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: ns-resize;
+        touch-action: none;
+    }
+
+    .mobile-resize-bar {
+        width: 45px;
+        height: 5px;
+        background-color: var(--color-text-secondary, #7f8c8d);
+        border-radius: 3px;
+        opacity: 0.7;
     }
 
     .greeting { margin-bottom: 0px; display: inline-block; }
